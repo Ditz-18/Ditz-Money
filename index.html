@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#00e5ff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Ditz Money">
+  <meta name="description" content="Ditz Money - Aplikasi pencatatan keuangan pribadi yang lengkap">
+  <title>Ditz Money - Laporan Keuangan</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="32x32" href="https://d.top4top.io/p_3721v7lxr0.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="https://d.top4top.io/p_3721v7lxr0.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://d.top4top.io/p_3721v7lxr0.png">
+
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet">
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<div id="app">
+  <!-- ======================================================
+       SIDEBAR (Desktop)
+       ====================================================== -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <img src="https://d.top4top.io/p_3721v7lxr0.png" alt="Ditz Money" class="logo-img">
+      <div class="logo-text">Ditz Money</div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Utama</div>
+      <div class="nav-item" data-page="dashboard">
+        <div class="nav-icon"><i class="fa-solid fa-house"></i></div>
+        <span>Dashboard</span>
+      </div>
+      <div class="nav-item" data-page="transaction">
+        <div class="nav-icon"><i class="fa-solid fa-plus-circle"></i></div>
+        <span>Catat Transaksi</span>
+      </div>
+      <div class="nav-item" data-page="history">
+        <div class="nav-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+        <span>Riwayat</span>
+      </div>
+      <div class="nav-item" data-page="report">
+        <div class="nav-icon"><i class="fa-solid fa-chart-bar"></i></div>
+        <span>Laporan</span>
+      </div>
+
+      <div class="nav-section-label" style="margin-top:8px">Manajemen</div>
+      <div class="nav-item" data-page="budget">
+        <div class="nav-icon"><i class="fa-solid fa-bullseye"></i></div>
+        <span>Budget</span>
+      </div>
+      <div class="nav-item" data-page="wallet">
+        <div class="nav-icon"><i class="fa-solid fa-wallet"></i></div>
+        <span>Dompet</span>
+      </div>
+      <div class="nav-item" data-page="category">
+        <div class="nav-icon"><i class="fa-solid fa-tags"></i></div>
+        <span>Kategori</span>
+      </div>
+      <div class="nav-item" data-page="recurring">
+        <div class="nav-icon"><i class="fa-solid fa-rotate"></i></div>
+        <span>Rutin</span>
+      </div>
+
+      <div class="nav-section-label" style="margin-top:8px">Data</div>
+      <div class="nav-item" data-page="backup">
+        <div class="nav-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+        <span>Backup</span>
+      </div>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="nav-item" data-page="settings">
+        <div class="nav-icon"><i class="fa-solid fa-gear"></i></div>
+        <span>Pengaturan</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ======================================================
+       MAIN CONTENT
+       ====================================================== -->
+  <main class="main-content">
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-title" id="topbar-title">Dashboard</div>
+      <div class="topbar-actions">
+        <div class="topbar-wallet-badge" id="topbar-wallet-badge" onclick="App.navigate('wallet')">
+          <i class="fa-solid fa-wallet"></i>
+          <span>Memuat...</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Page Content -->
+    <div class="page-content">
+      <div class="page" id="page-dashboard"></div>
+      <div class="page" id="page-transaction"></div>
+      <div class="page" id="page-history"></div>
+      <div class="page" id="page-report"></div>
+      <div class="page" id="page-budget"></div>
+      <div class="page" id="page-wallet"></div>
+      <div class="page" id="page-category"></div>
+      <div class="page" id="page-recurring"></div>
+      <div class="page" id="page-backup"></div>
+      <div class="page" id="page-settings"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ======================================================
+     BOTTOM NAV (Mobile)
+     ====================================================== -->
+<nav class="bottom-nav">
+  <div class="bottom-nav-inner">
+    <div class="bottom-nav-item" data-page="dashboard">
+      <div class="nav-icon-wrap"><i class="fa-solid fa-house"></i></div>
+      <span>Home</span>
+    </div>
+    <div class="bottom-nav-item" data-page="history">
+      <div class="nav-icon-wrap"><i class="fa-solid fa-clock-rotate-left"></i></div>
+      <span>Riwayat</span>
+    </div>
+    <div class="bottom-nav-item" data-page="report">
+      <div class="nav-icon-wrap"><i class="fa-solid fa-chart-bar"></i></div>
+      <span>Laporan</span>
+    </div>
+    <div class="bottom-nav-item" data-page="budget">
+      <div class="nav-icon-wrap"><i class="fa-solid fa-bullseye"></i></div>
+      <span>Budget</span>
+    </div>
+    <div class="bottom-nav-item" data-page="settings">
+      <div class="nav-icon-wrap"><i class="fa-solid fa-gear"></i></div>
+      <span>Setting</span>
+    </div>
+  </div>
+</nav>
+
+<!-- FAB Backdrop -->
+<div class="fab-backdrop" id="fab-backdrop" onclick="App.closeFab()"></div>
+
+<!-- FAB - Add Transaction (Mobile) -->
+<div class="fab-more" id="fab-more">
+  <div class="fab-item" data-page="category">
+    <i class="fa-solid fa-tags" style="color:var(--pink)"></i> Kategori
+  </div>
+  <div class="fab-item" data-page="backup">
+    <i class="fa-solid fa-cloud-arrow-up" style="color:var(--blue)"></i> Backup
+  </div>
+  <div class="fab-item" data-page="recurring">
+    <i class="fa-solid fa-rotate" style="color:var(--lime)"></i> Transaksi Rutin
+  </div>
+  <div class="fab-item" data-page="wallet">
+    <i class="fa-solid fa-wallet" style="color:var(--teal)"></i> Dompet
+  </div>
+  <div class="fab-item" data-page="transaction">
+    <i class="fa-solid fa-plus-circle" style="color:var(--green)"></i> Catat Transaksi
+  </div>
+</div>
+<button class="fab-main" id="fab-toggle">
+  <i class="fa-solid fa-plus" id="fab-icon"></i>
+</button>
+
+<!-- Toast Container -->
+<div id="toast-container"></div>
+
+<!-- Confirm Modal -->
+<div class="modal-overlay" id="confirm-modal">
+  <div class="confirm-dialog">
+    <div class="confirm-icon"></div>
+    <div class="confirm-title"></div>
+    <div class="confirm-msg"></div>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost" onclick="Utils.closeModal('confirm-modal')">Batal</button>
+      <button class="btn btn-danger" id="confirm-ok-btn">Ya, Lanjutkan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================
+     SCRIPTS
+     ====================================================== -->
+<script src="js/db.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/transaction.js"></script>
+<script src="js/pages.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>

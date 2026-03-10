@@ -1,0 +1,26 @@
+{
+  "name": "Ditz Money - Laporan Keuangan",
+  "short_name": "Ditz Money",
+  "description": "Aplikasi pencatatan keuangan pribadi",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0d0f14",
+  "theme_color": "#00e5ff",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "https://d.top4top.io/p_3721v7lxr0.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://d.top4top.io/p_3721v7lxr0.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "productivity"],
+  "lang": "id"
+}
