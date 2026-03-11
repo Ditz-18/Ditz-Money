@@ -1,7 +1,3 @@
-/**
- * FinTrack - Service Worker
- * PWA Offline Support
- */
 
 const CACHE_NAME = 'ditzmoney-v1';
 

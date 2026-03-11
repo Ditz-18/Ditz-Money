@@ -1,6 +1,3 @@
-/**
- * FinTrack Utils - Helper functions
- */
 
 const Utils = (() => {
 
