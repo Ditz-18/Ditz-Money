@@ -50,6 +50,10 @@
         <div class="nav-icon"><i class="fa-solid fa-house"></i></div>
         <span>Dashboard</span>
       </div>
+      <div class="nav-item" data-page="scan">
+        <div class="nav-icon"><i class="fa-solid fa-receipt"></i></div>
+        <span>Scan Struk</span>
+      </div>
       <div class="nav-item" data-page="transaction">
         <div class="nav-icon"><i class="fa-solid fa-plus-circle"></i></div>
         <span>Catat Transaksi</span>
@@ -133,10 +137,12 @@
 
     <!-- Page Content -->
     <div class="page-content">
+      <div class="page" id="page-help"></div>
       <div class="page" id="page-networth"></div>
       <div class="page" id="page-installment"></div>
       <div class="page" id="page-goals"></div>
       <div class="page" id="page-notes"></div>
+      <div class="page" id="page-scan"></div>
       <div class="page" id="page-splitbill"></div>
       <div class="page" id="page-dashboard"></div>
       <div class="page" id="page-transaction"></div>
@@ -211,6 +217,9 @@
   </div>
   <div class="fab-item" data-page="splitbill">
     <i class="fa-solid fa-scissors" style="color:var(--cyan)"></i> Split Bill
+  </div>
+  <div class="fab-item" data-page="scan">
+    <i class="fa-solid fa-receipt" style="color:var(--cyan)"></i> Scan Struk
   </div>
   <div class="fab-item" data-page="transaction">
     <i class="fa-solid fa-plus-circle" style="color:var(--green)"></i> Catat Transaksi
@@ -287,6 +296,7 @@
 <script src="js/dashboard.js"></script>
 <script src="js/transaction.js"></script>
 <script src="js/pages.js"></script>
+<script src="js/scan.js"></script>
 <script src="js/aichat.js"></script>
 <script src="js/app.js"></script>
 
