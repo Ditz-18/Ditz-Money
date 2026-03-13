@@ -712,10 +712,66 @@ const WalletPage = (() => {
               <label class="form-label">Nama Dompet</label>
               <input type="text" id="w-name" class="form-control" placeholder="Contoh: BCA, OVO, Kas...">
             </div>
-            <div class="form-group">
+
+            <!-- Saldo Awal: hanya tampil saat tambah baru -->
+            <div class="form-group" id="w-balance-new-group">
               <label class="form-label">Saldo Awal</label>
-              <input type="number" id="w-balance" class="form-control" placeholder="0" min="0">
+              <div style="position:relative">
+                <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:13px;font-weight:600">Rp</span>
+                <input type="text" inputmode="numeric" id="w-balance-new" class="form-control"
+                  placeholder="0" style="padding-left:40px;font-family:var(--font-display);font-weight:700"
+                  oninput="WalletPage.onBalanceInput(this)"
+                  onkeydown="return TransactionPage.onAmountKeydown(event)">
+              </div>
             </div>
+
+            <!-- Saldo saat ini: read-only, hanya tampil saat edit -->
+            <div class="form-group" id="w-balance-current-group" style="display:none">
+              <label class="form-label">Saldo Saat Ini</label>
+              <div style="position:relative">
+                <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:13px;font-weight:600">Rp</span>
+                <div id="w-balance-display" class="form-control" style="padding-left:40px;font-family:var(--font-display);font-weight:700;background:var(--bg-base);color:var(--text-muted);cursor:not-allowed;display:flex;align-items:center;gap:8px">
+                  <span id="w-balance-value">0</span>
+                  <i class="fa-solid fa-lock" style="font-size:11px;margin-left:auto;opacity:.5"></i>
+                </div>
+              </div>
+              <div class="form-hint">Saldo awal tidak dapat diubah langsung. Gunakan Update Saldo di bawah.</div>
+            </div>
+
+            <!-- Update saldo: hanya saat edit -->
+            <div class="form-group" id="w-balance-update-group" style="display:none">
+              <label class="form-label">
+                Update Saldo
+                <span class="text-muted" style="font-weight:400">(opsional)</span>
+              </label>
+              <div style="display:flex;gap:8px;margin-bottom:8px">
+                <button class="btn btn-sm ${''}" id="w-adj-tambah"
+                  style="flex:1;justify-content:center;background:rgba(0,230,118,.15);color:var(--green);border:1px solid rgba(0,230,118,.3)"
+                  onclick="WalletPage.setAdjType('add')">
+                  <i class="fa-solid fa-plus"></i> Tambah
+                </button>
+                <button class="btn btn-sm" id="w-adj-kurang"
+                  style="flex:1;justify-content:center;background:var(--bg-elevated);color:var(--text-muted);border:1px solid var(--border)"
+                  onclick="WalletPage.setAdjType('sub')">
+                  <i class="fa-solid fa-minus"></i> Kurangi
+                </button>
+                <button class="btn btn-sm" id="w-adj-set"
+                  style="flex:1;justify-content:center;background:var(--bg-elevated);color:var(--text-muted);border:1px solid var(--border)"
+                  onclick="WalletPage.setAdjType('set')">
+                  <i class="fa-solid fa-equals"></i> Set
+                </button>
+              </div>
+              <div style="position:relative">
+                <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:13px;font-weight:600">Rp</span>
+                <input type="text" inputmode="numeric" id="w-balance-update" class="form-control"
+                  placeholder="0" style="padding-left:40px;font-size:18px;font-family:var(--font-display);font-weight:700"
+                  oninput="WalletPage.onBalanceInput(this);WalletPage.previewNewBalance()"
+                  onkeydown="return TransactionPage.onAmountKeydown(event)">
+              </div>
+              <div id="w-balance-preview" class="form-hint" style="display:none;color:var(--teal)"></div>
+              <input type="hidden" id="w-adj-type" value="add">
+            </div>
+
             <div class="form-group">
               <label class="form-label">Tipe</label>
               <select id="w-type" class="form-control">
@@ -819,41 +875,145 @@ const WalletPage = (() => {
     document.getElementById('w-icon').value = icon;
   }
 
+  function onBalanceInput(input) {
+    let raw = input.value.replace(/[^0-9]/g, '');
+    if (!raw) { input.value = ''; return; }
+    raw = String(parseInt(raw, 10));
+    input.value = Number(raw).toLocaleString('id-ID');
+  }
+
+  function setAdjType(type) {
+    document.getElementById('w-adj-type').value = type;
+    const styles = {
+      add: { bg:'rgba(0,230,118,.15)', color:'var(--green)',   border:'rgba(0,230,118,.3)' },
+      sub: { bg:'rgba(255,23,68,.15)',  color:'var(--red)',    border:'rgba(255,23,68,.3)' },
+      set: { bg:'rgba(0,229,255,.15)',  color:'var(--cyan)',   border:'rgba(0,229,255,.3)' },
+    };
+    ['add','sub','set'].forEach(t => {
+      const btn = document.getElementById('w-adj-' + (t==='add'?'tambah':t==='sub'?'kurang':'set'));
+      if (!btn) return;
+      const active = t === type;
+      btn.style.background  = active ? styles[t].bg    : 'var(--bg-elevated)';
+      btn.style.color       = active ? styles[t].color : 'var(--text-muted)';
+      btn.style.borderColor = active ? styles[t].border : 'var(--border)';
+    });
+    previewNewBalance();
+  }
+
+  function previewNewBalance() {
+    const w = DB.getWallets().find(x => x.id === editingId);
+    if (!w) return;
+    const settings  = DB.getSettings();
+    const adjType   = document.getElementById('w-adj-type')?.value || 'add';
+    const adjAmount = parseInt((document.getElementById('w-balance-update')?.value||'0').replace(/[^0-9]/g,''), 10) || 0;
+    const preview   = document.getElementById('w-balance-preview');
+    if (!preview) return;
+
+    if (!adjAmount) { preview.style.display = 'none'; return; }
+
+    let newBalance = w.balance || 0;
+    if (adjType === 'add') newBalance = (w.balance||0) + adjAmount;
+    if (adjType === 'sub') newBalance = (w.balance||0) - adjAmount;
+    if (adjType === 'set') newBalance = adjAmount;
+
+    const color = newBalance >= 0 ? 'var(--teal)' : 'var(--red)';
+    preview.style.display = 'block';
+    preview.style.color   = color;
+    preview.innerHTML = `Saldo baru: <strong>${Utils.formatCurrency(newBalance, settings)}</strong>`;
+  }
+
   function openModal(id) {
     editingId = id || null;
     document.getElementById('wallet-modal-title').textContent = id ? 'Edit Dompet' : 'Tambah Dompet';
-    if (id) {
+
+    const isEdit = !!id;
+
+    // Toggle section visibility
+    document.getElementById('w-balance-new-group').style.display     = isEdit ? 'none' : '';
+    document.getElementById('w-balance-current-group').style.display = isEdit ? '' : 'none';
+    document.getElementById('w-balance-update-group').style.display  = isEdit ? '' : 'none';
+
+    if (isEdit) {
       const w = DB.getWallets().find(x => x.id === id);
       if (w) {
-        document.getElementById('w-name').value    = w.name;
-        document.getElementById('w-balance').value = w.balance || 0;
-        document.getElementById('w-type').value    = w.type || 'cash';
-        document.getElementById('w-icon').value    = w.icon || 'fa-wallet';
+        const settings = DB.getSettings();
+        document.getElementById('w-name').value         = w.name;
+        document.getElementById('w-balance-value').textContent = Utils.formatCurrency(w.balance || 0, settings).replace(/^Rp\s?/, '');
+        document.getElementById('w-type').value         = w.type || 'cash';
+        document.getElementById('w-icon').value         = w.icon  || 'fa-wallet';
+        document.getElementById('w-balance-update').value = '';
+        document.getElementById('w-balance-preview').style.display = 'none';
+        document.getElementById('w-adj-type').value    = 'add';
+        // Reset adj buttons ke default (add active)
+        setAdjType('add');
         const iconEl = document.querySelector(`#wallet-modal .icon-option[data-icon="${w.icon}"]`);
-        if (iconEl) iconEl.classList.add('selected');
+        if (iconEl) { document.querySelectorAll('#wallet-modal .icon-option').forEach(e => e.classList.remove('selected')); iconEl.classList.add('selected'); }
       }
     } else {
-      document.getElementById('w-name').value    = '';
-      document.getElementById('w-balance').value = '';
+      document.getElementById('w-name').value          = '';
+      document.getElementById('w-balance-new').value   = '';
+      document.getElementById('w-type').value          = 'cash';
+      document.getElementById('w-icon').value          = 'fa-wallet';
+      document.querySelectorAll('#wallet-modal .icon-option').forEach(e => e.classList.remove('selected'));
     }
     Utils.openModal('wallet-modal');
   }
+
   function closeModal() { Utils.closeModal('wallet-modal'); editingId = null; }
 
   function saveWallet() {
-    const name    = document.getElementById('w-name').value.trim();
-    const balance = Utils.parseAmount(document.getElementById('w-balance').value);
-    const type    = document.getElementById('w-type').value;
-    const icon    = document.getElementById('w-icon').value;
+    const name = document.getElementById('w-name').value.trim();
+    const type = document.getElementById('w-type').value;
+    const icon = document.getElementById('w-icon').value;
     if (!name) { Utils.toast('Nama dompet harus diisi', 'error'); return; }
+
     if (editingId) {
+      // Update nama, tipe, icon
       DB.updateWallet(editingId, { name, type, icon });
-      Utils.toast('Dompet diperbarui', 'success');
+
+      // Proses update saldo jika diisi
+      const adjAmount = parseInt((document.getElementById('w-balance-update')?.value||'0').replace(/[^0-9]/g,''), 10) || 0;
+      if (adjAmount > 0) {
+        const adjType = document.getElementById('w-adj-type')?.value || 'add';
+        const w       = DB.getWallets().find(x => x.id === editingId);
+        const current = w?.balance || 0;
+        let newBalance = current;
+        if (adjType === 'add') newBalance = current + adjAmount;
+        if (adjType === 'sub') newBalance = current - adjAmount;
+        if (adjType === 'set') newBalance = adjAmount;
+
+        // Update balance langsung via saveWallets
+        const wallets = DB.getWallets().map(x =>
+          x.id === editingId ? Object.assign({}, x, { balance: newBalance }) : x
+        );
+        DB.saveWallets(wallets);
+
+        // Catat sebagai transaksi penyesuaian
+        const settings = DB.getSettings();
+        if (adjType !== 'set') {
+          DB.addTransaction({
+            type:       adjType === 'add' ? 'income' : 'expense',
+            amount:     adjAmount,
+            categoryId: adjType === 'add' ? (DB.getCategories().find(c=>c.type==='income'&&c.name==='Lainnya')?.id || 'c13') : (DB.getCategories().find(c=>c.type==='expense'&&c.name==='Lainnya')?.id || 'c8'),
+            walletId:   editingId,
+            note:       `Penyesuaian saldo ${name}`,
+            date:       Utils.todayStr(),
+          });
+        }
+        Utils.toast(`Dompet diperbarui · Saldo baru: ${Utils.formatCurrency(newBalance, settings)}`, 'success');
+      } else {
+        Utils.toast('Dompet diperbarui', 'success');
+      }
     } else {
+      const balance = parseInt((document.getElementById('w-balance-new')?.value||'0').replace(/[^0-9]/g,''), 10) || 0;
       DB.addWallet({ name, balance, type, icon });
       Utils.toast('Dompet ditambahkan', 'success');
     }
-    closeModal(); render(); App.updateTopbarWallet();
+
+    closeModal();
+    render();
+    App.updateTopbarWallet();
+    App.markDirty(['dashboard','history','report']);
   }
 
   function setActive(id) {
@@ -962,7 +1122,9 @@ const WalletPage = (() => {
     });
   }
 
-  return { render, openModal, closeModal, saveWallet, selectIcon, setActive, deleteWallet, openTransferModal, closeTransferModal, onTransferAmountInput, onTransferWalletChange, doTransfer, deleteTransfer };
+  return { render, openModal, closeModal, saveWallet, selectIcon, setActive, deleteWallet,
+           openTransferModal, closeTransferModal, onTransferAmountInput, onTransferWalletChange,
+           doTransfer, deleteTransfer, onBalanceInput, setAdjType, previewNewBalance };
 })();
 
 // ============================================================
@@ -3352,14 +3514,41 @@ const SettingsPage = (() => {
           </div>
         </div>
 
+        <!-- Panduan & Bantuan -->
+        <div class="settings-section">
+          <div class="settings-section-title">Panduan & Bantuan</div>
+          <div class="settings-item" onclick="App.navigate('help')" style="cursor:pointer">
+            <div class="settings-item-left">
+              <div class="settings-item-icon"><i class="fa-solid fa-book-open" style="color:var(--cyan)"></i></div>
+              <div class="settings-item-info">
+                <h4>Panduan Penggunaan</h4>
+                <p>Cara menggunakan semua fitur app</p>
+              </div>
+            </div>
+            <i class="fa-solid fa-chevron-right" style="color:var(--text-muted)"></i>
+          </div>
+          <div class="settings-item" onclick="App.navigate('help');setTimeout(()=>HelpPage.setTab('faq'),100)" style="cursor:pointer">
+            <div class="settings-item-left">
+              <div class="settings-item-icon"><i class="fa-solid fa-circle-question" style="color:var(--purple)"></i></div>
+              <div class="settings-item-info">
+                <h4>FAQ</h4>
+                <p>Pertanyaan yang sering ditanyakan</p>
+              </div>
+            </div>
+            <i class="fa-solid fa-chevron-right" style="color:var(--text-muted)"></i>
+          </div>
+        </div>
+
         <!-- About -->
         <div class="settings-section">
           <div class="settings-section-title">Tentang</div>
           <div class="card" style="padding:20px;text-align:center">
             <img src="https://d.top4top.io/p_3721v7lxr0.png" alt="Ditz Money" style="width:56px;height:56px;border-radius:var(--radius-lg);object-fit:cover;margin:0 auto 12px;display:block">
             <div style="font-family:var(--font-display);font-size:20px;font-weight:800;margin-bottom:4px">${s.appName || 'Ditz Money'}</div>
-            <div class="text-muted text-sm">Versi 2.0.0 · Aplikasi Keuangan Pribadi</div>
-            <div class="text-muted text-sm" style="margin-top:4px">Data disimpan di browser (localStorage) | Author : Bagas Aditya</div>
+            <div class="text-muted text-sm">Versi 3.0.0 · Aplikasi Keuangan Pribadi</div>
+            <div class="text-muted text-sm" style="margin-top:4px">Data disimpan di browser (localStorage)</div>
+            <div class="text-muted text-sm" style="margin-top:4px">Contact Author melalui Instagram : <b style="color:#00e5ff"> @bgs_adityaa</b></div>
+          
           </div>
         </div>
       </div>
@@ -3501,4 +3690,455 @@ const SettingsPage = (() => {
   }
 
   return { render, saveSetting, setCurrency, togglePin, savePin, initPWAButton, triggerInstall };
+})();
+
+// ============================================================
+// HELP PAGE — Panduan & Bantuan
+// ============================================================
+const HelpPage = (() => {
+  let activeTab   = 'guide';
+  let searchQuery = '';
+  let openItems   = new Set();
+
+  const GUIDES = [
+    {
+      id: 'dashboard',
+      icon: 'fa-house', color: 'var(--cyan)',
+      title: 'Dashboard',
+      desc: 'Halaman utama yang menampilkan ringkasan keuangan kamu.',
+      steps: [
+        'Pilih tahun dan bulan di bagian atas untuk melihat data periode tertentu.',
+        'Kartu statistik menampilkan total saldo, pemasukan, pengeluaran, dan selisih bersih.',
+        'Grafik "Tren Bulanan" menunjukkan perbandingan pemasukan vs pengeluaran sepanjang tahun.',
+        'Grafik "Pengeluaran" memperlihatkan breakdown per kategori bulan ini.',
+        'Scroll ke bawah untuk melihat transaksi terbaru, ringkasan dompet, dan status budget.',
+      ],
+      tips: 'Tap badge dompet di topbar untuk langsung masuk ke halaman Dompet.',
+    },
+    {
+      id: 'transaction',
+      icon: 'fa-plus-circle', color: 'var(--green)',
+      title: 'Catat Transaksi',
+      desc: 'Mencatat pemasukan dan pengeluaran kamu secara manual.',
+      steps: [
+        'Pilih jenis transaksi: Pemasukan atau Pengeluaran.',
+        'Masukkan jumlah — otomatis terformat dengan titik ribuan.',
+        'Pilih kategori yang sesuai dari daftar.',
+        'Pilih dompet yang digunakan untuk transaksi ini.',
+        'Isi tanggal dan catatan opsional.',
+        'Tap "Simpan Transaksi" — saldo dompet otomatis diperbarui.',
+        'Jika saldo tidak cukup untuk pengeluaran, akan muncul konfirmasi sebelum disimpan.',
+      ],
+      tips: 'Kamu juga bisa mencatat transaksi langsung lewat Ditz AI dengan mengetik contoh: "catat makan siang 35rb dari kas".',
+    },
+    {
+      id: 'history',
+      icon: 'fa-clock-rotate-left', color: 'var(--yellow)',
+      title: 'Riwayat Transaksi',
+      desc: 'Melihat, mencari, dan mengelola semua transaksi.',
+      steps: [
+        'Gunakan search bar untuk mencari berdasarkan kategori, dompet, atau catatan.',
+        'Filter berdasarkan jenis (Semua/Pemasukan/Pengeluaran), kategori, dan dompet.',
+        'Pilih tahun dan bulan untuk melihat periode tertentu.',
+        'Tap ikon pensil untuk edit transaksi, ikon sampah untuk hapus.',
+        'Tap tombol "CSV" di pojok kanan atas untuk export data ke file spreadsheet.',
+      ],
+      tips: 'Transaksi yang merupakan transfer antar dompet ditandai dengan badge "TRANSFER" berwarna teal.',
+    },
+    {
+      id: 'report',
+      icon: 'fa-chart-bar', color: 'var(--purple)',
+      title: 'Laporan',
+      desc: 'Analisis keuangan dengan grafik dan tabel detail.',
+      steps: [
+        'Tab Bulanan: grafik arus kas harian + ringkasan statistik.',
+        'Tab Per Kategori: pie chart pengeluaran dan pemasukan per kategori.',
+        'Tab Tahunan: rekap 12 bulan dalam satu tabel.',
+        'Pilih tahun dan bulan di pojok kanan atas untuk ganti periode.',
+        'Tap ikon printer untuk cetak laporan ke PDF — otomatis terbuka di tab baru.',
+      ],
+      tips: 'Pastikan izinkan popup browser agar fitur cetak PDF bisa berjalan.',
+    },
+    {
+      id: 'budget',
+      icon: 'fa-bullseye', color: 'var(--orange)',
+      title: 'Budget Planner',
+      desc: 'Mengatur batas pengeluaran per kategori.',
+      steps: [
+        'Tap "+ Tambah Budget" untuk membuat budget baru.',
+        'Pilih kategori, tentukan limit jumlah, dan pilih periode (bulanan/tahunan).',
+        'Progress bar akan otomatis terisi sesuai pengeluaran nyata di kategori tersebut.',
+        'Warna progress bar berubah: hijau (aman), kuning (>80%), merah (habis).',
+        'Budget yang hampir habis juga ditampilkan di Dashboard.',
+      ],
+      tips: 'Tanyakan ke Ditz AI: "budget yang hampir habis" untuk cek status cepat.',
+    },
+    {
+      id: 'wallet',
+      icon: 'fa-wallet', color: 'var(--teal)',
+      title: 'Dompet',
+      desc: 'Mengelola berbagai sumber uang kamu.',
+      steps: [
+        'Tap kartu dompet untuk mengaktifkannya sebagai dompet default.',
+        'Tap ikon pensil di kartu untuk edit nama, tipe, dan icon dompet.',
+        'Tap "+ Tambah" untuk membuat dompet baru dengan saldo awal.',
+        'Tap "Transfer" untuk memindahkan uang antar dompet — saldo otomatis diperbarui.',
+        'Riwayat transfer antar dompet tersedia di bagian bawah halaman.',
+      ],
+      tips: 'Dompet aktif adalah yang dipakai sebagai default saat catat transaksi baru.',
+    },
+    {
+      id: 'category',
+      icon: 'fa-tags', color: 'var(--pink)',
+      title: 'Kategori',
+      desc: 'Mengatur kategori untuk transaksi pemasukan dan pengeluaran.',
+      steps: [
+        'Pilih tab "Pengeluaran" atau "Pemasukan" untuk melihat kategori per jenis.',
+        'Tap "+ Tambah Kategori" untuk membuat kategori baru.',
+        'Pilih warna, icon, nama, dan jenis kategori.',
+        'Tap ikon pensil untuk edit, ikon sampah untuk hapus kategori.',
+        'Kategori yang dihapus tidak menghapus transaksi yang sudah ada.',
+      ],
+      tips: 'Buat kategori yang spesifik seperti "Makan Siang Kantor" untuk analisis yang lebih detail.',
+    },
+    {
+      id: 'recurring',
+      icon: 'fa-rotate', color: 'var(--lime)',
+      title: 'Transaksi Rutin',
+      desc: 'Otomatisasi transaksi yang terjadi berulang setiap periode.',
+      steps: [
+        'Tap "+ Tambah" untuk membuat transaksi rutin baru.',
+        'Isi nama, jenis (pemasukan/pengeluaran), jumlah, frekuensi, kategori, dan dompet.',
+        'Pilih tanggal mulai — transaksi akan diproses otomatis saat app dibuka.',
+        'Tap ikon pause/play untuk menonaktifkan atau mengaktifkan kembali.',
+        'Frekuensi tersedia: Harian, Mingguan, Bulanan, Tahunan.',
+      ],
+      tips: 'Cocok untuk gaji, tagihan listrik, cicilan, atau pengeluaran rutin lainnya.',
+    },
+    {
+      id: 'splitbill',
+      icon: 'fa-scissors', color: 'var(--cyan)',
+      title: 'Split Bill',
+      desc: 'Hitung pembagian tagihan bersama secara adil.',
+      steps: [
+        'Isi nama tagihan dan tambahkan peserta satu per satu.',
+        'Tap "+ Tambah Item" untuk memasukkan tiap item tagihan.',
+        'Per item bisa tentukan siapa yang bayar duluan dan dibagi ke siapa saja.',
+        'Hasil pembagian muncul otomatis — siapa bayar berapa, dan siapa hutang ke siapa.',
+        'Tap "Cetak" untuk print ringkasan, atau "Catat ke Transaksi" untuk simpan ke riwayat.',
+      ],
+      tips: 'Gunakan fitur "Dibagi Ke" per item untuk split bill yang tidak merata.',
+    },
+    {
+      id: 'goals',
+      icon: 'fa-piggy-bank', color: 'var(--green)',
+      title: 'Target Tabungan',
+      desc: 'Menetapkan dan tracking progress target keuangan.',
+      steps: [
+        'Tap "+ Target Baru" untuk membuat target tabungan.',
+        'Isi nama, jumlah target, deadline opsional, dan deskripsi.',
+        'Pilih warna dan icon yang sesuai dengan targetmu.',
+        'Tap "Tambah Tabungan" di kartu goal untuk menabung — saldo dompet berkurang.',
+        'Progress bar otomatis terisi, dan ada notifikasi khusus saat target tercapai.',
+        'Tap "Tarik" untuk mengambil kembali tabungan ke dompet.',
+      ],
+      tips: 'Aktifkan deadline untuk melihat estimasi jumlah yang perlu ditabung per bulan.',
+    },
+    {
+      id: 'installment',
+      icon: 'fa-calendar-check', color: 'var(--orange)',
+      title: 'Cicilan Tracker',
+      desc: 'Memantau dan membayar cicilan secara terorganisir.',
+      steps: [
+        'Tap "+ Tambah Cicilan" dan isi nama, total hutang, dan tenor bulan.',
+        'Cicilan per bulan otomatis terhitung — bisa diubah manual jika perlu.',
+        'Isi tanggal mulai dan tanggal jatuh tempo per bulan.',
+        'Tap "Bayar Cicilan Sekarang" di kartu untuk mencatat pembayaran.',
+        'Cicilan yang sudah jatuh tempo ditandai dengan animasi merah.',
+        'Tap ikon jam untuk melihat riwayat semua pembayaran cicilan tersebut.',
+      ],
+      tips: 'Cicilan yang lunas otomatis pindah ke tab "Lunas".',
+    },
+    {
+      id: 'networth',
+      icon: 'fa-scale-unbalanced-flip', color: '#a78bfa',
+      title: 'Net Worth',
+      desc: 'Menghitung kekayaan bersih dari total aset dikurangi total hutang.',
+      steps: [
+        'Tab Ringkasan: lihat breakdown aset dan hutang dengan rasio keuangan.',
+        'Tab Aset: tambahkan aset manual seperti properti, kendaraan, saham, dll.',
+        'Tab Hutang: tambahkan hutang manual di luar cicilan yang sudah tercatat.',
+        'Saldo dompet, tabungan goals, dan sisa cicilan sudah otomatis masuk kalkulasi.',
+        'Tap "Snapshot" di pojok kanan atas untuk menyimpan kondisi net worth hari ini.',
+        'Tab Riwayat: lihat tren perubahan net worth dari snapshot yang sudah disimpan.',
+      ],
+      tips: 'Rutin buat snapshot setiap bulan untuk tracking progress kekayaan dari waktu ke waktu.',
+    },
+    {
+      id: 'notes',
+      icon: 'fa-note-sticky', color: 'var(--yellow)',
+      title: 'Catatan',
+      desc: 'Menyimpan memo, ide, atau rencana keuangan.',
+      steps: [
+        'Tap "+ Catatan Baru" untuk membuat catatan.',
+        'Isi judul, isi catatan, dan tag untuk kategorisasi.',
+        'Pilih warna kartu agar mudah dibedakan.',
+        'Aktifkan "Pin catatan ini" agar muncul di bagian teratas.',
+        'Filter catatan berdasarkan warna atau yang di-pin saja.',
+        'Tap kartu catatan untuk membaca isi lengkapnya.',
+      ],
+      tips: 'Gunakan tag untuk mengelompokkan catatan, contoh: "rencana", "target", "reminder".',
+    },
+    {
+      id: 'backup',
+      icon: 'fa-cloud-arrow-up', color: 'var(--blue)',
+      title: 'Backup & Restore',
+      desc: 'Menyimpan dan memulihkan semua data aplikasi.',
+      steps: [
+        'Tap "Export JSON" untuk mengunduh backup semua data ke file .json.',
+        'Simpan file backup di tempat yang aman (Google Drive, email, dll).',
+        'Tap "Export CSV" untuk mengunduh data transaksi ke format spreadsheet.',
+        'Untuk restore: drag & drop file .json backup ke area yang tersedia, atau tap untuk pilih file.',
+        'Konfirmasi restore akan muncul sebelum data ditimpa.',
+        'Tap "Reset Semua Data" hanya jika ingin menghapus semua data dari awal.',
+      ],
+      tips: 'Lakukan backup rutin, minimal sebulan sekali, sebelum ganti HP atau clear browser.',
+    },
+    {
+      id: 'aichat',
+      icon: 'fa-robot', color: '#7c3aed',
+      title: 'Ditz AI',
+      desc: 'Asisten keuangan berbasis AI yang bisa menjawab pertanyaan dan mencatat transaksi.',
+      steps: [
+        'Tap ikon robot ungu di pojok kanan bawah untuk membuka Ditz AI.',
+        'Ketik pertanyaan bebas tentang keuanganmu — AI akan membaca data yang ada.',
+        'Untuk cek saldo: ketik "saldo semua dompet" atau "saldo BCA".',
+        'Untuk analisis: ketik "pengeluaran bulan ini" atau "kategori terboros".',
+        'Untuk kalkulasi: ketik "250rb + 150rb berapa?" atau "berapa persen 50rb dari 200rb".',
+        'Untuk catat transaksi: ketik contoh "catat makan siang 35rb dari kas" — AI akan minta konfirmasi sebelum menyimpan.',
+        'Tap chip saran di bawah chat untuk pertanyaan cepat.',
+      ],
+      tips: 'Ditz AI bekerja offline — semua data diproses di perangkatmu, tidak dikirim ke server manapun.',
+    },
+  ];
+
+  const FAQS = [
+    {
+      id: 'faq1',
+      q: 'Apakah data saya aman? Di mana data disimpan?',
+      a: 'Semua data disimpan di localStorage browser di perangkat kamu sendiri. Data tidak dikirim ke server manapun — 100% offline dan privat. Pastikan rutin backup ke file JSON agar data tidak hilang jika browser di-reset.',
+    },
+    {
+      id: 'faq2',
+      q: 'Bagaimana jika data saya hilang tiba-tiba?',
+      a: 'Data di localStorage bisa hilang jika kamu clear browser data atau cache. Solusinya: rutin backup ke file JSON lewat menu Backup & Restore, lalu simpan di tempat aman seperti Google Drive atau email. Restore bisa dilakukan kapan saja dari file backup tersebut.',
+    },
+    {
+      id: 'faq3',
+      q: 'Apa bedanya Budget dan Goals?',
+      a: 'Budget adalah batas pengeluaran per kategori per bulan — untuk kontrol agar tidak overspending. Goals adalah target tabungan untuk sesuatu yang ingin dicapai (rumah, liburan, dll) — untuk motivasi menabung. Keduanya saling melengkapi.',
+    },
+    {
+      id: 'faq4',
+      q: 'Bagaimana cara install aplikasi di HP?',
+      a: 'Ditz Money adalah Progressive Web App (PWA). Di Android: buka lewat Chrome, tunggu banner "Add to Home Screen" muncul, atau tap menu titik tiga → "Install App". Di iPhone: buka lewat Safari, tap ikon Share → "Add to Home Screen". Setelah install, app bisa dibuka seperti aplikasi biasa dari layar utama.',
+    },
+    {
+      id: 'faq5',
+      q: 'Apakah bisa digunakan di beberapa perangkat sekaligus?',
+      a: 'Saat ini data tersimpan secara lokal per perangkat — belum ada sync otomatis antar perangkat. Solusinya: export backup JSON di perangkat lama, lalu import di perangkat baru lewat menu Backup & Restore.',
+    },
+    {
+      id: 'faq6',
+      q: 'Mengapa saldo dompet saya tidak sesuai?',
+      a: 'Saldo dompet dihitung otomatis dari semua transaksi yang tercatat. Jika tidak sesuai, kemungkinan ada transaksi yang belum dicatat, atau ada transaksi yang salah dicatat. Cek riwayat transaksi dan edit/hapus yang tidak sesuai. Kamu juga bisa edit saldo langsung dari halaman Dompet → tap ikon pensil.',
+    },
+    {
+      id: 'faq7',
+      q: 'Apa itu Transaksi Rutin dan bagaimana cara kerjanya?',
+      a: 'Transaksi Rutin adalah transaksi yang terjadi otomatis secara berkala (harian/mingguan/bulanan/tahunan). Setiap kali app dibuka, sistem akan mengecek apakah ada transaksi rutin yang sudah jatuh tempo dan mencatatnya secara otomatis ke riwayat.',
+    },
+    {
+      id: 'faq8',
+      q: 'Bagaimana cara Transfer antar dompet?',
+      a: 'Masuk ke halaman Dompet, tap tombol "Transfer" di pojok kanan atas. Pilih dompet asal dan tujuan, masukkan jumlah, lalu konfirmasi. Saldo kedua dompet akan otomatis diperbarui, dan tercatat di riwayat transfer.',
+    },
+    {
+      id: 'faq9',
+      q: 'Apakah Ditz AI memerlukan koneksi internet?',
+      a: 'Tidak. Ditz AI bekerja sepenuhnya offline menggunakan rule-based engine yang sudah tertanam di aplikasi. Semua pertanyaan diproses langsung dari data di perangkat kamu tanpa koneksi internet.',
+    },
+    {
+      id: 'faq10',
+      q: 'Bagaimana cara reset semua data dan mulai dari awal?',
+      a: 'Masuk ke Settings → Backup & Restore → scroll ke bawah → tap "Reset Semua Data". Pastikan sudah backup terlebih dahulu karena aksi ini tidak bisa dibatalkan. Setelah reset, app akan seperti pertama kali dibuka.',
+    },
+    {
+      id: 'faq11',
+      q: 'Apa itu Net Worth dan bagaimana cara menggunakannya?',
+      a: 'Net Worth adalah kekayaan bersih kamu = Total Aset - Total Hutang. Masuk ke halaman Net Worth untuk melihat kalkulasi otomatis dari saldo dompet, tabungan goals, dan sisa cicilan. Tambahkan aset dan hutang manual (properti, kendaraan, dll) untuk hasil yang lebih akurat. Buat snapshot bulanan untuk tracking tren dari waktu ke waktu.',
+    },
+    {
+      id: 'faq12',
+      q: 'Mengapa fitur print PDF tidak berfungsi?',
+      a: 'Fitur cetak PDF membuka tab/popup baru. Jika tidak berfungsi, kemungkinan popup diblokir oleh browser. Izinkan popup untuk domain app ini: tap ikon di address bar → izinkan popup → coba lagi.',
+    },
+  ];
+
+  function render() {
+    const container = document.getElementById('page-help');
+    container.innerHTML = `
+      <div class="page-header">
+        <h1>Panduan & Bantuan</h1>
+      </div>
+
+      <!-- Search -->
+      <div class="search-box mb-20">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" placeholder="Cari panduan atau pertanyaan..."
+          id="help-search" oninput="HelpPage.onSearch(this.value)" value="${searchQuery}">
+      </div>
+
+      <!-- Tabs -->
+      <div class="tab-nav mb-20">
+        <div class="tab-btn ${activeTab==='guide'?'active':''}" onclick="HelpPage.setTab('guide')">
+          <i class="fa-solid fa-book-open" style="margin-right:6px"></i>Panduan Fitur
+        </div>
+        <div class="tab-btn ${activeTab==='faq'?'active':''}" onclick="HelpPage.setTab('faq')">
+          <i class="fa-solid fa-circle-question" style="margin-right:6px"></i>FAQ
+        </div>
+      </div>
+
+      <div id="help-content"></div>
+    `;
+    _renderContent();
+  }
+
+  function _renderContent() {
+    const el = document.getElementById('help-content');
+    if (!el) return;
+    if (activeTab === 'guide') _renderGuides(el);
+    else                        _renderFAQ(el);
+  }
+
+  function _renderGuides(el) {
+    const q = searchQuery.toLowerCase();
+    const filtered = GUIDES.filter(g =>
+      !q || g.title.toLowerCase().includes(q) ||
+            g.desc.toLowerCase().includes(q) ||
+            g.steps.some(s => s.toLowerCase().includes(q))
+    );
+
+    if (!filtered.length) {
+      el.innerHTML = `<div class="empty-state"><i class="fa-solid fa-magnifying-glass"></i><h3>Tidak ditemukan</h3><p>Coba kata kunci lain</p></div>`;
+      return;
+    }
+
+    el.innerHTML = filtered.map(g => `
+      <div class="help-card ${openItems.has(g.id) ? 'open' : ''}" id="help-item-${g.id}">
+        <div class="help-card-header" onclick="HelpPage.toggle('${g.id}')">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="help-icon" style="--hc:${g.color}">
+              <i class="fa-solid ${g.icon}"></i>
+            </div>
+            <div>
+              <div style="font-weight:700;font-size:15px">${g.title}</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${g.desc}</div>
+            </div>
+          </div>
+          <i class="fa-solid fa-chevron-down help-chevron"></i>
+        </div>
+        <div class="help-card-body">
+          <div style="padding:16px">
+            <div style="font-size:12px;font-weight:700;color:var(--text-muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px">Cara Menggunakan</div>
+            <ol style="padding-left:18px;display:flex;flex-direction:column;gap:8px">
+              ${g.steps.map(s => `<li style="font-size:13px;line-height:1.6;color:var(--text-secondary)">${s}</li>`).join('')}
+            </ol>
+            ${g.tips ? `
+              <div style="margin-top:14px;padding:12px 14px;background:rgba(0,229,255,.08);border:1px solid rgba(0,229,255,.2);border-radius:var(--radius-md);display:flex;gap:10px;align-items:flex-start">
+                <i class="fa-solid fa-lightbulb" style="color:var(--yellow);margin-top:1px;flex-shrink:0"></i>
+                <span style="font-size:13px;color:var(--text-secondary);line-height:1.6">${g.tips}</span>
+              </div>
+            ` : ''}
+            <button class="btn btn-ghost btn-sm" style="margin-top:12px;width:100%;justify-content:center"
+              onclick="App.navigate('${g.id}')">
+              <i class="fa-solid fa-arrow-right"></i> Buka ${g.title}
+            </button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function _renderFAQ(el) {
+    const q = searchQuery.toLowerCase();
+    const filtered = FAQS.filter(f =>
+      !q || f.q.toLowerCase().includes(q) || f.a.toLowerCase().includes(q)
+    );
+
+    if (!filtered.length) {
+      el.innerHTML = `<div class="empty-state"><i class="fa-solid fa-magnifying-glass"></i><h3>Tidak ditemukan</h3><p>Coba kata kunci lain</p></div>`;
+      return;
+    }
+
+    el.innerHTML = `
+      <p class="text-muted text-sm mb-16">
+        <i class="fa-solid fa-circle-info" style="color:var(--cyan)"></i>
+        ${filtered.length} pertanyaan ditemukan
+      </p>
+      ${filtered.map(f => `
+        <div class="help-card ${openItems.has(f.id) ? 'open' : ''}" id="help-item-${f.id}">
+          <div class="help-card-header" onclick="HelpPage.toggle('${f.id}')">
+            <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
+              <div class="help-icon" style="--hc:var(--purple);flex-shrink:0">
+                <i class="fa-solid fa-circle-question"></i>
+              </div>
+              <div style="font-weight:600;font-size:14px;line-height:1.4">${f.q}</div>
+            </div>
+            <i class="fa-solid fa-chevron-down help-chevron" style="flex-shrink:0"></i>
+          </div>
+          <div class="help-card-body">
+            <div style="padding:16px;font-size:13px;line-height:1.7;color:var(--text-secondary)">
+              ${f.a}
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    `;
+  }
+
+  function toggle(id) {
+    if (openItems.has(id)) {
+      openItems.delete(id);
+    } else {
+      openItems.add(id);
+    }
+    const card = document.getElementById('help-item-' + id);
+    if (card) card.classList.toggle('open', openItems.has(id));
+  }
+
+  function setTab(tab) {
+    activeTab = tab;
+    searchQuery = '';
+    openItems.clear();
+    const input = document.getElementById('help-search');
+    if (input) input.value = '';
+    document.querySelectorAll('#page-help .tab-btn').forEach((b, i) => {
+      b.classList.toggle('active', ['guide','faq'][i] === tab);
+    });
+    _renderContent();
+  }
+
+  function onSearch(v) {
+    searchQuery = v;
+    openItems.clear();
+    if (v) openItems = new Set(
+      activeTab === 'guide'
+        ? GUIDES.filter(g => g.title.toLowerCase().includes(v.toLowerCase()) || g.desc.toLowerCase().includes(v.toLowerCase()) || g.steps.some(s=>s.toLowerCase().includes(v.toLowerCase()))).map(g=>g.id)
+        : FAQS.filter(f => f.q.toLowerCase().includes(v.toLowerCase()) || f.a.toLowerCase().includes(v.toLowerCase())).map(f=>f.id)
+    );
+    _renderContent();
+  }
+
+  return { render, setTab, toggle, onSearch };
 })();

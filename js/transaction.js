@@ -30,6 +30,9 @@ const TransactionPage = (() => {
     container.innerHTML = `
       <div class="page-header">
         <h1>Catat Transaksi</h1>
+        <button class="btn btn-ghost btn-sm" onclick="App.navigate('scan')">
+          <i class="fa-solid fa-receipt" style="color:var(--cyan)"></i> Scan Struk
+        </button>
       </div>
 
       <div style="max-width:560px;margin:0 auto">
@@ -454,7 +457,7 @@ const HistoryPage = (() => {
                   <i class="fa-solid ${cat.icon}"></i>
                 </div>
                 <div class="txn-info">
-                  <div class="txn-name">${t.isTransfer ? '<span class="badge" style="background:rgba(29,233,182,.15);color:var(--teal);font-size:9px;padding:2px 6px;margin-right:4px">TRANSFER</span>' : ''}${cat.name}</div>
+                  <div class="txn-name">${t.isTransfer ? '<span class="badge" style="background:rgba(29,233,182,.15);color:var(--teal);font-size:9px;padding:2px 6px;margin-right:4px">TRANSFER</span>' : ''}${cat.name}${t.hasReceipt ? ' <span class="receipt-badge" onclick="event.stopPropagation();ReceiptModal.show(\''+t.id+'\')"><i class="fa-solid fa-receipt"></i> Struk</span>' : ''}</div>
                   <div class="txn-meta">
                     <i class="fa-solid fa-wallet" style="font-size:10px;margin-right:3px"></i>${wallet.name}
                     ${t.note ? ' · ' + Utils.truncate(t.note, 25) : ''}

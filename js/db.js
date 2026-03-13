@@ -1,4 +1,5 @@
 
+
 const DB = (() => {
   const PREFIX = 'fintrack_';
 
@@ -13,6 +14,7 @@ const DB = (() => {
     goals:         PREFIX + 'goals',
     installments:  PREFIX + 'installments',
     networth:      PREFIX + 'networth',
+    receipts:      PREFIX + 'receipts',
   };
 
   // --- Generic CRUD ---
@@ -206,6 +208,7 @@ const DB = (() => {
         installments:  getInstallments(),
         networthItems: getNetworthItems(),
         networthSnaps: getNetworthSnaps(),
+        receipts:      getReceipts(),
         settings:      getSettings(),
       }
     };
@@ -223,6 +226,7 @@ const DB = (() => {
     if (d.installments)  saveInstallments(d.installments);
     if (d.networthItems) saveNetworthItems(d.networthItems);
     if (d.networthSnaps) saveNetworthSnaps(d.networthSnaps);
+    if (d.receipts)      saveReceipts(d.receipts);
     if (d.settings)      saveSettings(d.settings);
   }
   function clearAll() {
@@ -611,6 +615,53 @@ const DB = (() => {
     };
   }
 
+  // --- Receipts / Struk ---
+  // receipt: { id, transactionId, storeName, date, items:[{name,qty,price}],
+  //            subtotal, tax, discount, total, thumbnail, createdAt }
+
+  function getReceipts()    { return _get(keys.receipts) || []; }
+  function saveReceipts(r)  { _set(keys.receipts, r); }
+
+  function addReceipt(receipt) {
+    const list = getReceipts();
+    receipt.id        = 'rct' + Date.now();
+    receipt.createdAt = Date.now();
+    list.unshift(receipt);
+    saveReceipts(list);
+    return receipt;
+  }
+
+  function updateReceipt(id, data) {
+    saveReceipts(getReceipts().map(r =>
+      r.id === id ? Object.assign({}, r, data) : r
+    ));
+  }
+
+  function deleteReceipt(id) {
+    saveReceipts(getReceipts().filter(r => r.id !== id));
+  }
+
+  function getReceiptByTransactionId(txnId) {
+    return getReceipts().find(r => r.transactionId === txnId) || null;
+  }
+
+  // Compress image to thumbnail (max 200px, quality 0.5)
+  function compressImage(dataUrl, maxSize, quality) {
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ratio  = Math.min(maxSize / img.width, maxSize / img.height, 1);
+        canvas.width  = Math.round(img.width  * ratio);
+        canvas.height = Math.round(img.height * ratio);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality || 0.5));
+      };
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
+    });
+  }
+
   return {
     getSettings, saveSettings,
     getWallets, saveWallets, addWallet, updateWallet, deleteWallet, getActiveWallet,
@@ -625,6 +676,8 @@ const DB = (() => {
     getInstallments, saveInstallments, addInstallment, updateInstallment, deleteInstallment, payInstallment, getInstallmentInfo,
     getNetworthItems, saveNetworthItems, addNetworthItem, updateNetworthItem, deleteNetworthItem,
     getNetworthSnaps, recordNetworthSnapshot, calcNetWorth,
+    getReceipts, saveReceipts, addReceipt, updateReceipt, deleteReceipt,
+    getReceiptByTransactionId, compressImage,
     exportBackup, importBackup, clearAll,
     getTransactionsByPeriod, getSummary, getCategoryTotals, getMonthlyTrend, getBudgetSpending,
     processRecurring,

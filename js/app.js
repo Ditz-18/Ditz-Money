@@ -10,6 +10,7 @@ const App = (() => {
   const pages = {
     dashboard:   { title: 'Dashboard',           render: () => Dashboard.render() },
     transaction: { title: 'Catat Transaksi',      render: () => TransactionPage.render() },
+    scan:        { title: 'Scan Struk',            render: () => ScanPage.render() },
     history:     { title: 'Riwayat',              render: () => HistoryPage.render() },
     report:      { title: 'Laporan',              render: () => ReportPage.render() },
     budget:      { title: 'Budget Planner',       render: () => BudgetPage.render() },
@@ -21,6 +22,7 @@ const App = (() => {
     goals:        { title: 'Target Tabungan',        render: () => GoalsPage.render() },
     installment:  { title: 'Cicilan Tracker',         render: () => InstallmentPage.render() },
     networth:     { title: 'Net Worth',                render: () => NetWorthPage.render() },
+    help:         { title: 'Panduan & Bantuan',        render: () => HelpPage.render() },
     backup:       { title: 'Backup & Restore',        render: () => BackupPage.render() },
     settings:    { title: 'Pengaturan',           render: () => SettingsPage.render() },
   };
