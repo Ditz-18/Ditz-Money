@@ -1813,3 +1813,19 @@ tr:hover td { background: var(--bg-elevated); color: var(--text-primary); }
   .receipt-item-price { width: 100px; }
   .receipt-item-total { width: auto; flex: 1; }
 }
+
+/* ============================================================
+   RECEIPT BUILDER — Select Mode
+   ============================================================ */
+.txn-selectable {
+  cursor: pointer;
+  transition: var(--transition);
+  user-select: none;
+}
+.txn-selectable:hover {
+  background: rgba(29,233,182,.06);
+}
+.txn-selected {
+  background: rgba(29,233,182,.1) !important;
+  border-color: rgba(29,233,182,.3) !important;
+}
