@@ -1,4 +1,6 @@
-
+// ============================================================
+// TRANSACTION FORM
+// ============================================================
 const TransactionPage = (() => {
 
   const CATEGORY_ICONS = [
@@ -305,9 +307,16 @@ const HistoryPage = (() => {
   let filterWallet   = 'all';
   let filterYear     = new Date().getFullYear();
   let filterMonth    = new Date().getMonth();
+  let filterMode     = 'month';
+  let filterDateFrom = '';
+  let filterDateTo   = '';
   let searchQuery    = '';
   let currentPage    = 1;
   const PAGE_SIZE    = 20;
+
+  // Seleksi transaksi untuk struk
+  let selectMode     = false;
+  let selectedIds    = new Set();
 
   function render() {
     const container = document.getElementById('page-history');
@@ -324,27 +333,84 @@ const HistoryPage = (() => {
           <button class="btn btn-ghost btn-sm" onclick="HistoryPage.exportCSV()">
             <i class="fa-solid fa-file-csv" style="color:var(--green)"></i> CSV
           </button>
+          <button class="btn ${selectMode?'btn-primary':'btn-ghost'} btn-sm" id="select-mode-btn"
+            onclick="HistoryPage.toggleSelectMode()">
+            <i class="fa-solid fa-receipt" style="color:${selectMode?'#fff':'var(--teal)'}"></i>
+            ${selectMode ? 'Batal' : 'Buat Struk'}
+          </button>
           <button class="btn btn-primary btn-sm" onclick="App.navigate('transaction')">
             <i class="fa-solid fa-plus"></i> Tambah
           </button>
         </div>
       </div>
 
+      <!-- Select mode bar -->
+      <div id="select-bar" style="display:${selectMode?'flex':'none'};align-items:center;justify-content:space-between;background:rgba(29,233,182,.1);border:1px solid rgba(29,233,182,.25);border-radius:var(--radius-md);padding:12px 16px;margin-bottom:16px;gap:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="checkbox" id="select-all-cb" style="width:16px;height:16px;accent-color:var(--teal);cursor:pointer"
+            onchange="HistoryPage.toggleSelectAll(this.checked)">
+          <span style="font-size:13px;font-weight:600;color:var(--teal)">
+            <span id="selected-count">0</span> dipilih
+          </span>
+        </div>
+        <button class="btn btn-success btn-sm" id="make-receipt-btn" disabled
+          onclick="HistoryPage.openReceiptBuilder()">
+          <i class="fa-solid fa-file-invoice"></i> Buat Struk
+        </button>
+      </div>
+
       <!-- Filters -->
       <div class="card mb-20">
         <div class="filter-bar" style="margin-bottom:12px">
-          <div class="search-box">
+          <div class="search-box" style="flex:1">
             <i class="fa-solid fa-magnifying-glass"></i>
-            <input type="text" placeholder="Cari transaksi..." id="history-search" oninput="HistoryPage.onSearch(this.value)">
+            <input type="text" placeholder="Cari transaksi..." id="history-search"
+              oninput="HistoryPage.onSearch(this.value)" value="${searchQuery}">
           </div>
+          <div class="tab-nav" style="margin-bottom:0;width:auto;flex-shrink:0">
+            <div class="tab-btn ${filterMode==='month'?'active':''}" style="padding:8px 12px;font-size:12px"
+              onclick="HistoryPage.setFilterMode('month')">
+              <i class="fa-solid fa-calendar-days"></i> Bulan
+            </div>
+            <div class="tab-btn ${filterMode==='range'?'active':''}" style="padding:8px 12px;font-size:12px"
+              onclick="HistoryPage.setFilterMode('range')">
+              <i class="fa-solid fa-calendar-week"></i> Rentang
+            </div>
+          </div>
+        </div>
+
+        <div id="hist-mode-month" style="display:${filterMode==='month'?'flex':'none'};gap:10px;margin-bottom:12px;flex-wrap:wrap">
           <select class="form-control" style="width:auto" id="hist-year" onchange="HistoryPage.onYearChange(this.value)">
             ${_yearOptions()}
           </select>
-          <select class="form-control" style="width:auto" id="hist-month" onchange="HistoryPage.onMonthChange(this.value)">
+          <select class="form-control" style="flex:1;min-width:130px" id="hist-month" onchange="HistoryPage.onMonthChange(this.value)">
             <option value="-1">Semua Bulan</option>
             ${Array.from({length:12},(_,m)=>`<option value="${m}" ${m===filterMonth?'selected':''}>${Utils.getMonthName(m)}</option>`).join('')}
           </select>
         </div>
+
+        <div id="hist-mode-range" style="display:${filterMode==='range'?'':'none'};margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <div style="flex:1">
+              <label style="font-size:11px;color:var(--text-muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase;display:block;margin-bottom:4px">Dari</label>
+              <input type="date" id="hist-date-from" class="form-control" value="${filterDateFrom}" onchange="HistoryPage.onDateFromChange(this.value)">
+            </div>
+            <div style="color:var(--text-muted);padding-top:20px;flex-shrink:0">
+              <i class="fa-solid fa-arrow-right" style="font-size:12px"></i>
+            </div>
+            <div style="flex:1">
+              <label style="font-size:11px;color:var(--text-muted);font-weight:600;letter-spacing:.5px;text-transform:uppercase;display:block;margin-bottom:4px">Sampai</label>
+              <input type="date" id="hist-date-to" class="form-control" value="${filterDateTo}" onchange="HistoryPage.onDateToChange(this.value)">
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center;min-width:70px" onclick="HistoryPage.setQuickRange('today')">Hari ini</button>
+            <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center;min-width:70px" onclick="HistoryPage.setQuickRange('week')">7 Hari</button>
+            <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center;min-width:70px" onclick="HistoryPage.setQuickRange('month')">30 Hari</button>
+            <button class="btn btn-ghost btn-sm" style="flex:1;justify-content:center;min-width:70px" onclick="HistoryPage.setQuickRange('all')">Semua</button>
+          </div>
+        </div>
+
         <div class="filter-bar">
           <div class="tab-nav" style="margin-bottom:0;flex:1">
             <div class="tab-btn ${filterType==='all'?'active':''}" onclick="HistoryPage.onTypeChange('all')">Semua</div>
@@ -362,13 +428,40 @@ const HistoryPage = (() => {
         </div>
       </div>
 
-      <!-- Summary bar -->
       <div id="history-summary" class="mb-20"></div>
-
-      <!-- List -->
       <div class="card">
         <div id="history-list"></div>
         <div id="history-pagination" style="display:flex;justify-content:center;gap:8px;padding-top:16px"></div>
+      </div>
+
+      <!-- Receipt Builder Modal -->
+      <div class="modal-overlay" id="receipt-builder-modal" onclick="if(event.target===this)HistoryPage.closeReceiptBuilder()">
+        <div class="modal" style="max-width:480px">
+          <div class="modal-header">
+            <div class="modal-title"><i class="fa-solid fa-file-invoice" style="color:var(--teal)"></i> Buat Struk</div>
+            <button class="btn-icon" onclick="HistoryPage.closeReceiptBuilder()"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-label">Judul Struk</label>
+              <input type="text" id="rb-title" class="form-control" placeholder="Contoh: Belanja Kantor, Reimbursement...">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Catatan <span class="text-muted">(opsional)</span></label>
+              <input type="text" id="rb-note" class="form-control" placeholder="Keterangan tambahan...">
+            </div>
+            <div id="rb-preview" style="margin-top:4px"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="HistoryPage.closeReceiptBuilder()">Batal</button>
+            <button class="btn btn-ghost btn-sm" onclick="HistoryPage.downloadReceiptPNG()" style="color:var(--cyan)">
+              <i class="fa-solid fa-image"></i> PNG
+            </button>
+            <button class="btn btn-primary" onclick="HistoryPage.downloadReceiptPDF()">
+              <i class="fa-solid fa-file-pdf"></i> PDF
+            </button>
+          </div>
+        </div>
       </div>
     `;
 
@@ -382,14 +475,27 @@ const HistoryPage = (() => {
 
   function _getFiltered() {
     let txns = DB.getTransactions();
-    if (filterYear && filterMonth >= 0) {
-      txns = txns.filter(t => {
-        const d = new Date(t.date);
-        return d.getFullYear() === filterYear && d.getMonth() === filterMonth;
-      });
-    } else if (filterYear) {
-      txns = txns.filter(t => new Date(t.date).getFullYear() === filterYear);
+
+    // ── Filter tanggal ──────────────────────────────────────
+    if (filterMode === 'month') {
+      if (filterYear && filterMonth >= 0) {
+        txns = txns.filter(t => {
+          const d = new Date(t.date);
+          return d.getFullYear() === filterYear && d.getMonth() === filterMonth;
+        });
+      } else if (filterYear) {
+        txns = txns.filter(t => new Date(t.date).getFullYear() === filterYear);
+      }
+    } else {
+      // Range mode
+      if (filterDateFrom) {
+        txns = txns.filter(t => t.date >= filterDateFrom);
+      }
+      if (filterDateTo) {
+        txns = txns.filter(t => t.date <= filterDateTo);
+      }
     }
+
     if (filterType !== 'all') txns = txns.filter(t => t.type === filterType);
     if (filterCategory !== 'all') txns = txns.filter(t => t.categoryId === filterCategory);
     if (filterWallet !== 'all') txns = txns.filter(t => t.walletId === filterWallet);
@@ -452,7 +558,17 @@ const HistoryPage = (() => {
             const cat    = Utils.getCategoryById(t.categoryId);
             const wallet = Utils.getWalletById(t.walletId);
             return `
-              <div class="txn-item">
+              <div class="txn-item ${selectMode ? 'txn-selectable' : ''} ${selectMode && selectedIds.has(t.id) ? 'txn-selected' : ''}"
+                ${selectMode ? `onclick="HistoryPage.toggleSelect('${t.id}', !document.getElementById('cb-${t.id}').checked); document.getElementById('cb-${t.id}').checked = !document.getElementById('cb-${t.id}').checked"` : ''}>
+                ${selectMode ? `
+                  <div style="display:flex;align-items:center;padding-right:10px">
+                    <input type="checkbox" id="cb-${t.id}" class="txn-select-cb"
+                      style="width:18px;height:18px;accent-color:var(--teal);cursor:pointer;flex-shrink:0"
+                      ${selectedIds.has(t.id) ? 'checked' : ''}
+                      onclick="event.stopPropagation()"
+                      onchange="HistoryPage.toggleSelect('${t.id}', this.checked)">
+                  </div>
+                ` : ''}
                 <div class="txn-icon" style="background:${cat.color}22;color:${cat.color}">
                   <i class="fa-solid ${cat.icon}"></i>
                 </div>
@@ -467,6 +583,7 @@ const HistoryPage = (() => {
                   <div class="txn-amount ${t.type==='income'?'amount-income':'amount-expense'}">
                     ${t.type==='income'?'+':'-'}${Utils.formatCurrency(t.amount, settings)}
                   </div>
+                  ${!selectMode ? `
                   <div style="display:flex;gap:4px">
                     <button class="btn-icon" style="width:28px;height:28px;font-size:12px" onclick="TransactionPage.editTransaction('${t.id}')">
                       <i class="fa-solid fa-pen" style="color:var(--cyan)"></i>
@@ -474,7 +591,7 @@ const HistoryPage = (() => {
                     <button class="btn-icon" style="width:28px;height:28px;font-size:12px" onclick="HistoryPage.deleteTransaction('${t.id}')">
                       <i class="fa-solid fa-trash" style="color:var(--red)"></i>
                     </button>
-                  </div>
+                  </div>` : ''}
                 </div>
               </div>
             `;
@@ -633,13 +750,493 @@ const HistoryPage = (() => {
     event.target.classList.add('active');
     _renderList();
   }
-  function onCatChange(v) { filterCategory = v; currentPage = 1; _renderList(); }
-  function onWalletChange(v) { filterWallet = v; currentPage = 1; _renderList(); }
-  function onYearChange(v) { filterYear = +v; currentPage = 1; _renderList(); }
-  function onMonthChange(v) { filterMonth = +v; currentPage = 1; _renderList(); }
+  function onCatChange(v)    { filterCategory = v; currentPage = 1; _renderList(); }
+  function onWalletChange(v) { filterWallet   = v; currentPage = 1; _renderList(); }
+  function onYearChange(v)   { filterYear  = +v; currentPage = 1; _renderList(); }
+  function onMonthChange(v)  { filterMonth = +v; currentPage = 1; _renderList(); }
+
+  function setFilterMode(mode) {
+    filterMode = mode;
+    // Inisialisasi range default saat pertama switch ke range
+    if (mode === 'range' && !filterDateFrom && !filterDateTo) {
+      setQuickRange('month');
+      return;
+    }
+    currentPage = 1;
+    render();
+  }
+
+  function onDateFromChange(v) {
+    filterDateFrom = v;
+    // Validasi: from tidak boleh lebih dari to
+    if (filterDateTo && v > filterDateTo) { filterDateTo = v; const el = document.getElementById('hist-date-to'); if (el) el.value = v; }
+    currentPage = 1; _renderList();
+  }
+
+  function onDateToChange(v) {
+    filterDateTo = v;
+    // Validasi: to tidak boleh kurang dari from
+    if (filterDateFrom && v < filterDateFrom) { filterDateFrom = v; const el = document.getElementById('hist-date-from'); if (el) el.value = v; }
+    currentPage = 1; _renderList();
+  }
+
+  function setQuickRange(preset) {
+    const today = Utils.todayStr();
+    const d     = new Date();
+    if (preset === 'today') {
+      filterDateFrom = today; filterDateTo = today;
+    } else if (preset === 'week') {
+      const from = new Date(d); from.setDate(d.getDate() - 6);
+      filterDateFrom = from.toISOString().slice(0,10); filterDateTo = today;
+    } else if (preset === 'month') {
+      const from = new Date(d); from.setDate(d.getDate() - 29);
+      filterDateFrom = from.toISOString().slice(0,10); filterDateTo = today;
+    } else {
+      filterDateFrom = ''; filterDateTo = '';
+    }
+    filterMode  = 'range';
+    currentPage = 1;
+    render();
+  }
+
   function goPage(p) { currentPage = p; _renderList(); document.getElementById('page-history').scrollTop = 0; }
 
-  return { render, deleteTransaction, exportCSV, printPDF, onSearch, onTypeChange, onCatChange, onWalletChange, onYearChange, onMonthChange, goPage };
+  // ── Select Mode ─────────────────────────────────────────────
+  function toggleSelectMode() {
+    selectMode = !selectMode;
+    selectedIds.clear();
+    render();
+  }
+
+  function toggleSelect(id, checked) {
+    if (checked) selectedIds.add(id);
+    else         selectedIds.delete(id);
+    _updateSelectBar();
+  }
+
+  function toggleSelectAll(checked) {
+    const txns = _getFiltered();
+    txns.forEach(t => checked ? selectedIds.add(t.id) : selectedIds.delete(t.id));
+    // Update semua checkbox visible
+    document.querySelectorAll('.txn-select-cb').forEach(cb => { cb.checked = checked; });
+    _updateSelectBar();
+  }
+
+  function _updateSelectBar() {
+    const countEl = document.getElementById('selected-count');
+    const makeBtn = document.getElementById('make-receipt-btn');
+    const allCb   = document.getElementById('select-all-cb');
+    const n = selectedIds.size;
+    if (countEl) countEl.textContent = n;
+    if (makeBtn) makeBtn.disabled = n === 0;
+    if (allCb) {
+      const total = _getFiltered().length;
+      allCb.indeterminate = n > 0 && n < total;
+      allCb.checked = n > 0 && n === total;
+    }
+  }
+
+  // ── Receipt Builder ─────────────────────────────────────────
+  function openReceiptBuilder() {
+    if (selectedIds.size === 0) { Utils.toast('Pilih minimal 1 transaksi', 'warning'); return; }
+    const settings = DB.getSettings();
+    document.getElementById('rb-title').value = '';
+    document.getElementById('rb-note').value  = '';
+    _renderReceiptPreview();
+    Utils.openModal('receipt-builder-modal');
+  }
+
+  function closeReceiptBuilder() {
+    Utils.closeModal('receipt-builder-modal');
+  }
+
+  function _getSelectedTxns() {
+    return DB.getTransactions().filter(t => selectedIds.has(t.id))
+      .sort((a,b) => a.date > b.date ? 1 : -1);
+  }
+
+  function _renderReceiptPreview() {
+    const el = document.getElementById('rb-preview');
+    if (!el) return;
+    const settings = DB.getSettings();
+    const txns     = _getSelectedTxns();
+    const income   = txns.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+    const expense  = txns.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+
+    // Kumpulkan dompet unik
+    const walletNames = [...new Set(txns.map(t => Utils.getWalletById(t.walletId).name))].join(', ');
+
+    el.innerHTML = `
+      <div style="background:var(--bg-elevated);border-radius:var(--radius-md);padding:14px;font-size:12px">
+        <div style="font-weight:700;color:var(--text-muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px">
+          Preview · ${txns.length} transaksi
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="color:var(--text-muted)">Dompet</span>
+          <span style="font-weight:600">${walletNames}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="color:var(--text-muted)">Periode</span>
+          <span style="font-weight:600">${Utils.formatDate(txns[0]?.date||'')} — ${Utils.formatDate(txns[txns.length-1]?.date||'')}</span>
+        </div>
+        ${income > 0 ? `
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="color:var(--text-muted)">Pemasukan</span>
+          <span style="font-weight:700;color:var(--green)">${Utils.formatCurrency(income,settings)}</span>
+        </div>` : ''}
+        ${expense > 0 ? `
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="color:var(--text-muted)">Pengeluaran</span>
+          <span style="font-weight:700;color:var(--red)">${Utils.formatCurrency(expense,settings)}</span>
+        </div>` : ''}
+        <div style="border-top:1px dashed var(--border);padding-top:8px;margin-top:6px;display:flex;justify-content:space-between">
+          <span style="font-weight:700">Total Bersih</span>
+          <span style="font-weight:800;color:${income-expense>=0?'var(--cyan)':'var(--orange)'}">${Utils.formatCurrency(income-expense,settings)}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // ── Build receipt HTML ───────────────────────────────────────
+  function _buildReceiptHTML(title, note, forCanvas) {
+    const settings  = DB.getSettings();
+    const txns      = _getSelectedTxns();
+    const appName   = settings.appName || 'Ditz Money';
+    const income    = txns.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+    const expense   = txns.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+    const net       = income - expense;
+    const walletNames = [...new Set(txns.map(t => Utils.getWalletById(t.walletId).name))].join(', ');
+    const now       = new Date().toLocaleString('id-ID');
+
+    // Group by date
+    const grouped = {};
+    txns.forEach(t => { if (!grouped[t.date]) grouped[t.date] = []; grouped[t.date].push(t); });
+
+    const rows = Object.entries(grouped).map(([date, items]) => `
+      <tr class="date-row"><td colspan="3">${Utils.formatDate(date)}</td></tr>
+      ${items.map(t => {
+        const cat    = Utils.getCategoryById(t.categoryId);
+        const wallet = Utils.getWalletById(t.walletId);
+        return `<tr>
+          <td class="item-name">
+            <span class="cat-dot" style="background:${cat.color}"></span>${cat.name}
+            ${t.note ? `<br><span class="item-note">${Utils.truncate(t.note,40)}</span>` : ''}
+          </td>
+          <td class="item-wallet">${wallet.name}</td>
+          <td class="item-amount ${t.type}">${t.type==='income'?'+':'-'}${Utils.formatCurrency(t.amount,settings)}</td>
+        </tr>`;
+      }).join('')}
+    `).join('');
+
+    return `<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    font-family: 'Courier New', Courier, monospace;
+    background: #fff;
+    color: #1a1a1a;
+    font-size: 13px;
+    padding: 0;
+  }
+  .receipt {
+    width: ${forCanvas ? '400px' : '100%'};
+    max-width: 420px;
+    margin: 0 auto;
+    background: #fff;
+    padding: 0 0 20px;
+  }
+  /* Header */
+  .receipt-header {
+    background: #0d0f14;
+    color: #fff;
+    text-align: center;
+    padding: 28px 20px 20px;
+  }
+  .receipt-logo {
+    width: 52px; height: 52px;
+    border-radius: 14px;
+    margin: 0 auto 10px;
+    display: block;
+    object-fit: cover;
+  }
+  .receipt-app-name {
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    color: #00e5ff;
+    margin-bottom: 2px;
+  }
+  .receipt-app-sub {
+    font-size: 11px;
+    color: rgba(255,255,255,.5);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* Title strip */
+  .receipt-title-strip {
+    background: #00e5ff;
+    color: #0d0f14;
+    text-align: center;
+    padding: 10px 20px;
+    font-weight: 900;
+    font-size: 15px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  /* Meta info */
+  .receipt-meta {
+    padding: 14px 20px;
+    border-bottom: 1px dashed #ddd;
+    font-size: 12px;
+  }
+  .receipt-meta-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    gap: 12px;
+  }
+  .receipt-meta-row span:first-child { color: #888; }
+  .receipt-meta-row span:last-child  { font-weight: 600; text-align: right; }
+
+  /* Items */
+  .receipt-items { padding: 0 20px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  .date-row td {
+    padding: 10px 0 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #888;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border-top: 1px dashed #ddd;
+  }
+  .date-row:first-child td { border-top: none; }
+  tr td { padding: 6px 0; vertical-align: top; }
+  .item-name { width: 52%; font-size: 12px; line-height: 1.4; }
+  .item-note { font-size: 10px; color: #999; }
+  .cat-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+  .item-wallet { width: 22%; font-size: 11px; color: #888; vertical-align: middle; }
+  .item-amount { width: 26%; text-align: right; font-weight: 700; font-size: 12px; }
+  .item-amount.income { color: #00a854; }
+  .item-amount.expense { color: #d4170c; }
+
+  /* Totals */
+  .receipt-totals {
+    margin: 14px 20px 0;
+    border-top: 2px dashed #ddd;
+    padding-top: 12px;
+  }
+  .total-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+  .total-row.income span:last-child { color: #00a854; font-weight: 700; }
+  .total-row.expense span:last-child { color: #d4170c; font-weight: 700; }
+  .total-row.net {
+    border-top: 2px solid #1a1a1a;
+    padding-top: 10px;
+    margin-top: 6px;
+  }
+  .total-row.net span:first-child { font-weight: 900; font-size: 14px; }
+  .total-row.net span:last-child { font-weight: 900; font-size: 16px; color: ${net>=0?'#0288d1':'#e53935'}; }
+
+  /* Note */
+  .receipt-note {
+    margin: 12px 20px 0;
+    padding: 10px 12px;
+    background: #f5f5f5;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #555;
+    border-left: 3px solid #00e5ff;
+  }
+
+  /* Barcode visual */
+  .receipt-barcode {
+    text-align: center;
+    padding: 16px 20px 8px;
+    letter-spacing: 4px;
+    font-size: 11px;
+    color: #ccc;
+  }
+  .barcode-lines {
+    display: flex; justify-content: center; gap: 2px; margin-bottom: 6px;
+  }
+  .barcode-line {
+    background: #1a1a1a; height: 36px; border-radius: 1px;
+  }
+
+  /* Footer */
+  .receipt-footer {
+    text-align: center;
+    padding: 10px 20px 0;
+    font-size: 10px;
+    color: #aaa;
+    line-height: 1.6;
+    border-top: 1px dashed #ddd;
+    margin: 0 20px;
+  }
+  .receipt-footer strong { color: #888; }
+</style>
+</head>
+<body>
+<div class="receipt">
+
+  <!-- HEADER -->
+  <div class="receipt-header">
+    <img class="receipt-logo" src="https://d.top4top.io/p_3721v7lxr0.png" alt="${appName}"
+      onerror="this.style.display='none'">
+    <div class="receipt-app-name">${appName}</div>
+    <div class="receipt-app-sub">Laporan Keuangan Pribadi</div>
+  </div>
+
+  <!-- TITLE STRIP -->
+  <div class="receipt-title-strip">${title || 'Ringkasan Transaksi'}</div>
+
+  <!-- META -->
+  <div class="receipt-meta">
+    <div class="receipt-meta-row">
+      <span>Dompet</span>
+      <span>${walletNames}</span>
+    </div>
+    <div class="receipt-meta-row">
+      <span>Periode</span>
+      <span>${Utils.formatDate(txns[0]?.date||'')} — ${Utils.formatDate(txns[txns.length-1]?.date||'')}</span>
+    </div>
+    <div class="receipt-meta-row">
+      <span>Jumlah Item</span>
+      <span>${txns.length} transaksi</span>
+    </div>
+    <div class="receipt-meta-row">
+      <span>Dicetak</span>
+      <span>${now}</span>
+    </div>
+  </div>
+
+  <!-- ITEMS -->
+  <div class="receipt-items">
+    <table>${rows}</table>
+  </div>
+
+  <!-- TOTALS -->
+  <div class="receipt-totals">
+    ${income > 0 ? `<div class="total-row income"><span>Subtotal Pemasukan</span><span>+${Utils.formatCurrency(income,settings)}</span></div>` : ''}
+    ${expense > 0 ? `<div class="total-row expense"><span>Subtotal Pengeluaran</span><span>-${Utils.formatCurrency(expense,settings)}</span></div>` : ''}
+    <div class="total-row net">
+      <span>TOTAL BERSIH</span>
+      <span>${net>=0?'+':''}${Utils.formatCurrency(net,settings)}</span>
+    </div>
+  </div>
+
+  ${note ? `<div class="receipt-note"><strong>Catatan:</strong> ${note}</div>` : ''}
+
+  <!-- BARCODE visual -->
+  <div class="receipt-barcode">
+    <div class="barcode-lines">
+      ${Array.from({length:42},(_,i)=>`<div class="barcode-line" style="width:${[1,2,1,1,3,1,2,1,1,2][i%10]}px"></div>`).join('')}
+    </div>
+    ${Date.now()}
+  </div>
+
+  <!-- FOOTER -->
+  <div class="receipt-footer">
+    Data dicetak otomatis oleh sistem <strong>${appName}</strong><br>
+    pada ${now}<br><br>
+    <strong>© ${new Date().getFullYear()} ${appName}</strong> · Aplikasi Keuangan Pribadi<br>
+    Struk ini bukan merupakan bukti transaksi resmi.
+  </div>
+
+</div>
+</body>
+</html>`;
+  }
+
+  // ── Download PDF ─────────────────────────────────────────────
+  function downloadReceiptPDF() {
+    const title = document.getElementById('rb-title')?.value.trim() || 'Ringkasan Transaksi';
+    const note  = document.getElementById('rb-note')?.value.trim()  || '';
+    const html  = _buildReceiptHTML(title, note, false);
+    const win   = window.open('', '_blank', 'width=500,height=800');
+    if (!win) { Utils.toast('Izinkan popup untuk cetak PDF', 'warning'); return; }
+    win.document.write(html);
+    win.document.close();
+    win.onload = () => setTimeout(() => { win.print(); }, 400);
+    closeReceiptBuilder();
+  }
+
+  // ── Download PNG via Canvas ──────────────────────────────────
+  function downloadReceiptPNG() {
+    const title = document.getElementById('rb-title')?.value.trim() || 'Ringkasan Transaksi';
+    const note  = document.getElementById('rb-note')?.value.trim()  || '';
+    const html  = _buildReceiptHTML(title, note, true);
+
+    Utils.toast('Menyiapkan gambar...', 'default');
+
+    // Buka iframe tersembunyi, render, ambil screenshot via html2canvas
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:420px;height:1px;border:none;visibility:hidden';
+    document.body.appendChild(iframe);
+    iframe.contentDocument.open();
+    iframe.contentDocument.write(html);
+    iframe.contentDocument.close();
+
+    setTimeout(() => {
+      const receiptEl = iframe.contentDocument.querySelector('.receipt');
+      const h = receiptEl ? receiptEl.scrollHeight + 40 : 800;
+      iframe.style.height = h + 'px';
+
+      setTimeout(() => {
+        // Load html2canvas dynamically
+        if (!window.html2canvas) {
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+          s.onload = () => _captureIframe(iframe, title);
+          s.onerror = () => { Utils.toast('Gagal load library. Coba download PDF.', 'error'); document.body.removeChild(iframe); };
+          document.head.appendChild(s);
+        } else {
+          _captureIframe(iframe, title);
+        }
+      }, 300);
+    }, 400);
+
+    closeReceiptBuilder();
+  }
+
+  function _captureIframe(iframe, title) {
+    const receiptEl = iframe.contentDocument.querySelector('.receipt');
+    if (!receiptEl) { document.body.removeChild(iframe); Utils.toast('Gagal membuat gambar', 'error'); return; }
+
+    window.html2canvas(receiptEl, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+    }).then(canvas => {
+      const link = document.createElement('a');
+      link.download = `struk-${Date.now()}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      document.body.removeChild(iframe);
+      Utils.toast('Struk berhasil diunduh!', 'success');
+    }).catch(() => {
+      document.body.removeChild(iframe);
+      Utils.toast('Gagal membuat gambar. Coba download PDF.', 'error');
+    });
+  }
+
+  return { render, deleteTransaction, exportCSV, printPDF, onSearch, onTypeChange, onCatChange,
+           onWalletChange, onYearChange, onMonthChange, goPage,
+           setFilterMode, onDateFromChange, onDateToChange, setQuickRange,
+           toggleSelectMode, toggleSelect, toggleSelectAll,
+           openReceiptBuilder, closeReceiptBuilder,
+           downloadReceiptPDF, downloadReceiptPNG };
 })();
 
 // ============================================================
